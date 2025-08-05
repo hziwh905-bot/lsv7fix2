@@ -285,7 +285,7 @@ export class SubscriptionService {
   }
 
   static async getAllSubscriptions(): Promise<(Subscription & { 
-    user: { email: string; user_metadata: any };
+    user_id: string;
     restaurant: { name: string; slug: string } | null;
   })[]> {
     try {
@@ -293,7 +293,6 @@ export class SubscriptionService {
         .from('subscriptions')
         .select(`
           *,
-          user:users(email, user_metadata),
           restaurant:restaurants(name, slug)
         `)
         .order('created_at', { ascending: false });
