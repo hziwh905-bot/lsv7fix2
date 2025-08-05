@@ -172,7 +172,11 @@ const currentPlan = plans.find(p => p.planId === selectedPlan);
       if (err.message?.includes('refresh the page')) {
         setError('Please refresh the page and try again.');
       } else if (err.message?.includes('Payment system is being configured')) {
-        setError('Payment system is being configured. Please contact support for assistance.');
+        if (error.message?.includes('Price ID not configured')) {
+          setError('Payment system is being configured. Please contact support for assistance.');
+        } else {
+          setError(error.message || 'An error occurred during checkout. Please try again.');
+        }
       } else {
         setError(err.message || 'Payment processing temporarily unavailable. Please try again or contact support.');
       }
