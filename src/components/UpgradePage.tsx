@@ -6,21 +6,16 @@ import {
   Users, BarChart3, Shield, Zap, Star, Gift, Target,
   Loader2, AlertCircle
 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
 import { SubscriptionService } from '../services/subscriptionService';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-
- 
+import CustomCheckout from './CustomCheckout';
 
 const UpgradePage: React.FC = () => {
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
   const [autoRenew, setAutoRenew] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -103,88 +98,18 @@ const currentPlan = plans.find(p => p.planId === selectedPlan);
     }
   };
 
-  const handleUpgrade = async () => {
-    if (!user) return;
+  const handleUpgrade = () => {
+    setShowCheckout(true);
+  };
 
-    setUpgrading(true);
-    setError('');
+  const handlePaymentSuccess = async () => {
+    setShowCheckout(false);
+    await loadCurrentSubscription();
+    navigate('/dashboard?payment=success');
+  };
 
-    try {
-      // Get fresh session with retry
-      let session = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (!session && attempts < maxAttempts) {
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        if (currentSession?.access_token) {
-          session = currentSession;
-          break;
-        }
-        attempts++;
-        if (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      
-      if (!session?.access_token) {
-        throw new Error('Please refresh the page and try again.');
-      }
-
-      // Create Stripe checkout session
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planType: selectedPlan,
-          autoRenew,
-          successUrl: `${window.location.origin}/dashboard?payment=success`,
-          cancelUrl: `${window.location.origin}/upgrade?payment=cancelled`
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.error?.includes('Price ID not configured')) {
-          throw new Error('Payment system is being configured. Please contact support for assistance.');
-        }
-        throw new Error(errorData.error || 'Payment processing temporarily unavailable. Please try again.');
-      }
-
-      const { sessionId } = await response.json();
-      
-      // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error('Stripe failed to load');
-      }
-
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
-      }
-    } catch (err: any) {
-      console.error('Upgrade error:', err);
-      if (err.message?.includes('refresh the page')) {
-        setError('Please refresh the page and try again.');
-      } else if (err.message?.includes('Payment system is being configured')) {
-        if (error.message?.includes('Price ID not configured')) {
-          setError('Payment system is being configured. Please contact support for assistance.');
-        } else {
-          setError(error.message || 'An error occurred during checkout. Please try again.');
-        }
-      } else {
-        setError(err.message || 'Payment processing temporarily unavailable. Please try again or contact support.');
-      }
-    } finally {
-      setUpgrading(false);
-    }
+  const handlePaymentCancel = () => {
+    setShowCheckout(false);
   };
 
   if (loading) {
@@ -195,6 +120,17 @@ const currentPlan = plans.find(p => p.planId === selectedPlan);
           <p className="text-gray-600">Loading subscription details...</p>
         </div>
       </div>
+    );
+  }
+
+  if (showCheckout) {
+    return (
+      <CustomCheckout
+        plan={currentPlan}
+        autoRenew={autoRenew}
+        onSuccess={handlePaymentSuccess}
+        onCancel={handlePaymentCancel}
+      />
     );
   }
 
@@ -414,22 +350,22 @@ const currentPlan = plans.find(p => p.planId === selectedPlan);
 
           <button
             onClick={handleUpgrade}
-            disabled={upgrading}
+            disabled={loading}
             className="bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:shadow-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 mx-auto"
           >
-            {upgrading ? (
+            {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
                 <CreditCard className="h-5 w-5" />
-                Proceed to Checkout
+                Proceed to Payment
                 <ArrowRight className="h-5 w-5" />
               </>
             )}
           </button>
           
           <p className="text-sm text-gray-500 mt-4">
-            Secure payment powered by Stripe • Cancel anytime
+            Custom secure checkout • Cancel anytime
           </p>
         </motion.div>
 

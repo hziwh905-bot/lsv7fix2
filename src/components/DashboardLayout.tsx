@@ -194,6 +194,13 @@ export default function DashboardLayout() {
                 </p>
                 <p className="text-xs text-gray-500">Restaurant Owner</p>
               </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
             <button
               onClick={() => navigate('/wallet')}

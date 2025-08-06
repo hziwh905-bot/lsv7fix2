@@ -7,11 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-interface CheckoutRequest {
+interface PaymentRequest {
   planType: 'monthly' | 'semiannual' | 'annual';
   autoRenew: boolean;
-  successUrl: string;
-  cancelUrl: string;
+  paymentMethodId: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -43,7 +42,7 @@ Deno.serve(async (req: Request) => {
       apiVersion: '2023-10-16',
     });
 
-    const { planType, autoRenew, successUrl, cancelUrl }: CheckoutRequest = await req.json();
+    const { planType, autoRenew, paymentMethodId }: PaymentRequest = await req.json();
 
     // Define price mapping
     const priceMap = {
@@ -52,16 +51,21 @@ Deno.serve(async (req: Request) => {
       annual: Deno.env.get('STRIPE_ANNUAL_PRICE_ID')
     };
 
+    const amounts = {
+      monthly: 299, // $2.99 in cents
+      semiannual: 999, // $9.99 in cents
+      annual: 1999 // $19.99 in cents
+    };
+
     // Validate that we have a valid price ID
     const priceId = priceMap[planType];
     if (!priceId) {
-      throw new Error(`Price ID not configured for plan: ${planType}. Please configure Stripe price IDs in environment variables.`);
+      throw new Error(`Price ID not configured for plan: ${planType}`);
     }
 
     // Get or create Stripe customer
     let stripeCustomerId: string;
 
-    // Check if user already has a Stripe customer ID
     const { data: existingSubscription } = await supabaseClient
       .from('subscriptions')
       .select('stripe_customer_id')
@@ -71,7 +75,6 @@ Deno.serve(async (req: Request) => {
     if (existingSubscription?.stripe_customer_id) {
       stripeCustomerId = existingSubscription.stripe_customer_id;
     } else {
-      // Create new Stripe customer
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -81,63 +84,62 @@ Deno.serve(async (req: Request) => {
       stripeCustomerId = customer.id;
     }
 
-    // Create checkout session with custom branding
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: autoRenew ? 'subscription' : 'payment',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: {
-        user_id: user.id,
-        plan_type: planType,
-        auto_renew: autoRenew.toString(),
-      },
-      subscription_data: autoRenew ? {
+    if (autoRenew) {
+      // Create subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: stripeCustomerId,
+        items: [{ price: priceId }],
+        payment_behavior: 'default_incomplete',
+        payment_settings: { save_default_payment_method: 'on_subscription' },
+        expand: ['latest_invoice.payment_intent'],
         metadata: {
           user_id: user.id,
           plan_type: planType,
         },
-      } : undefined,
-      payment_intent_data: !autoRenew ? {
-        metadata: {
-          user_id: user.id,
-          plan_type: planType,
-        },
-      } : undefined,
-      // Custom branding
-      custom_text: {
-        submit: {
-          message: 'Complete your VOYA subscription upgrade'
-        }
-      },
-      invoice_creation: {
-        enabled: true,
-        invoice_data: {
-          description: `VOYA ${planType} subscription`,
-          metadata: {
-            user_id: user.id,
-            plan_type: planType,
-          }
-        }
-      }
-    });
+      });
 
-    return new Response(
-      JSON.stringify({ sessionId: session.id, url: session.url }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+      const invoice = subscription.latest_invoice as Stripe.Invoice;
+      const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+
+      return new Response(
+        JSON.stringify({ 
+          clientSecret: paymentIntent.client_secret,
+          subscriptionId: subscription.id 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    } else {
+      // Create one-time payment
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amounts[planType],
+        currency: 'usd',
+        customer: stripeCustomerId,
+        payment_method: paymentMethodId,
+        confirmation_method: 'manual',
+        confirm: true,
+        return_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-return`,
+        metadata: {
+          user_id: user.id,
+          plan_type: planType,
+        },
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          clientSecret: paymentIntent.client_secret,
+          status: paymentIntent.status 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error creating payment:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
