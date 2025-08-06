@@ -32,11 +32,11 @@ Deno.serve(async (req: Request) => {
       return new Response('No signature', { status: 400 });
     }
 
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
-    );
+   const event = await stripe.webhooks.constructEventAsync(
+  body,
+  signature,
+  Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+);
 
     console.log('Webhook event:', event.type);
 
