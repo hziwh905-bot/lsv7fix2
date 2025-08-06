@@ -102,12 +102,20 @@ const CheckoutForm: React.FC<{
 
       const { clientSecret, subscriptionId } = await response.json();
 
-      // Confirm payment
-      const { error: confirmError } = await stripe.confirmCardPayment(clientSecret);
+      // Confirm payment with card details
+const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+  payment_method: {
+    card: cardElement,
+    billing_details: {
+      email: user.email,
+    },
+  },
+});
 
-      if (confirmError) {
-        throw new Error(confirmError.message);
-      }
+if (confirmError) {
+  throw new Error(confirmError.message);
+}
+
 
       // Payment successful
       onSuccess();
