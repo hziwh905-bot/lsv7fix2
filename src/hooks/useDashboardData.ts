@@ -463,14 +463,12 @@ export const useDashboardData = (timeRange: string = '7d') => {
   }, [restaurant]);
 
   const refreshData = useCallback(() => {
-    if (user) {
-      fetchDashboardData();
-    }
+    fetchDashboardData();
   }, [fetchDashboardData]);
 
   useEffect(() => {
-    // Only fetch data if we have a user and not loading
-    if (user && !loading) {
+    // Only fetch data if we have a user (restaurant can be null)
+    if (user) {
       fetchDashboardData();
     }
   }, [user, restaurant, timeRange, fetchDashboardData]);
