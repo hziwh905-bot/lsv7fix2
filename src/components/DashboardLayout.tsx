@@ -182,7 +182,7 @@ export default function DashboardLayout() {
               </div>
             )}
             
-            <div className="flex items-center space-x-3 mb-4">
+            <div className="flex items-center space-x-3 mb-3">
               <div className="w-8 h-8 bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] rounded-full flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
                   {user?.email?.charAt(0).toUpperCase()}
@@ -194,14 +194,8 @@ export default function DashboardLayout() {
                 </p>
                 <p className="text-xs text-gray-500">Restaurant Owner</p>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
+            
             <button
               onClick={() => navigate('/wallet')}
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors mb-2"
@@ -209,6 +203,7 @@ export default function DashboardLayout() {
               <Wallet className="w-5 h-5 mr-3" />
               Customer Wallet
             </button>
+            
             {subscriptionData?.subscription?.plan_type === 'trial' && (
               <button
                 onClick={() => navigate('/upgrade')}
@@ -218,9 +213,10 @@ export default function DashboardLayout() {
                 Upgrade Plan
               </button>
             )}
+            
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
             >
               <LogOut className="w-5 h-5 mr-3" />
               Sign Out
@@ -255,7 +251,7 @@ export default function DashboardLayout() {
                 </button>
               )}
               
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 relative">
                 <div className="w-8 h-8 bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
                     {user?.email?.charAt(0).toUpperCase()}
@@ -267,6 +263,13 @@ export default function DashboardLayout() {
                   </p>
                   <p className="text-xs text-gray-500">Restaurant Owner</p>
                 </div>
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors ml-2"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </div>

@@ -99,13 +99,22 @@ const currentPlan = plans.find(p => p.planId === selectedPlan);
   };
 
   const handleUpgrade = () => {
+    if (!currentPlan) {
+      setError('Please select a plan first');
+      return;
+    }
     setShowCheckout(true);
   };
 
   const handlePaymentSuccess = async () => {
     setShowCheckout(false);
     await loadCurrentSubscription();
-    navigate('/dashboard?payment=success');
+    // Show success message and redirect
+    setTimeout(() => {
+      navigate('/dashboard', { 
+        state: { message: 'Subscription upgraded successfully!' }
+      });
+    }, 1000);
   };
 
   const handlePaymentCancel = () => {
