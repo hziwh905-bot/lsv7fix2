@@ -285,20 +285,53 @@ export class SubscriptionService {
   }
 
   static async getAllSubscriptions(): Promise<(Subscription & { 
-    user_id: string;
-    restaurant: { name: string; slug: string } | null;
+    user_email?: string;
+    restaurant_name?: string;
   })[]> {
     try {
-      const { data, error } = await supabase
+      // First get all subscriptions
+      const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('subscriptions')
-        .select(`
-          *,
-          restaurant:restaurants(name, slug)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (subscriptionsError) throw subscriptionsError;
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        return [];
+      }
+
+      // Get user emails from auth.users using service role
+      const userIds = subscriptions.map(s => s.user_id);
+      const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
+      
+      if (usersError) {
+        console.warn('Could not fetch user emails:', usersError);
+      }
+
+      // Get restaurant names
+      const { data: restaurants, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('id, name, owner_id')
+        .in('owner_id', userIds);
+
+      if (restaurantsError) {
+        console.warn('Could not fetch restaurants:', restaurantsError);
+      }
+
+      // Combine the data
+      const enrichedSubscriptions = subscriptions.map(subscription => {
+        const user = users?.users?.find(u => u.id === subscription.user_id);
+        const restaurant = restaurants?.find(r => r.owner_id === subscription.user_id);
+        
+        return {
+          ...subscription,
+          user_email: user?.email,
+          restaurant_name: restaurant?.name
+        };
+      });
+
+      return enrichedSubscriptions;
     } catch (error: any) {
       console.error('Error fetching all subscriptions:', error);
       return [];

@@ -32,11 +32,11 @@ Deno.serve(async (req: Request) => {
       return new Response('No signature', { status: 400 });
     }
 
-   const event = await stripe.webhooks.constructEventAsync(
-  body,
-  signature,
-  Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
-);
+    const event = await stripe.webhooks.constructEventAsync(
+      body,
+      signature,
+      Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+    );
 
     console.log('Webhook event:', event.type);
 
@@ -47,7 +47,6 @@ Deno.serve(async (req: Request) => {
         
         if (session.metadata?.user_id) {
           const planType = session.metadata.plan_type as 'monthly' | 'semiannual' | 'annual';
-          const autoRenew = session.metadata.auto_renew === 'true';
           
           // Calculate period end based on plan
           const now = new Date();
@@ -67,7 +66,7 @@ Deno.serve(async (req: Request) => {
               periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
           }
 
-          // Update or create subscription
+          // Use upsert to update existing subscription or create new one
           const { error } = await supabase
             .from('subscriptions')
             .upsert({
@@ -85,7 +84,7 @@ Deno.serve(async (req: Request) => {
           if (error) {
             console.error('Error updating subscription:', error);
           } else {
-            console.log('Subscription updated successfully');
+            console.log('Subscription updated successfully for user:', session.metadata.user_id);
           }
         }
         break;
@@ -95,7 +94,7 @@ Deno.serve(async (req: Request) => {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         console.log('Payment succeeded:', paymentIntent.id);
         
-        if (paymentIntent.metadata?.user_id) {
+        if (paymentIntent.metadata?.user_id && paymentIntent.metadata?.plan_type) {
           const planType = paymentIntent.metadata.plan_type as 'monthly' | 'semiannual' | 'annual';
           
           // Calculate period end for one-time payments
@@ -113,6 +112,7 @@ Deno.serve(async (req: Request) => {
               periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
           }
 
+          // Use upsert to handle trial → paid upgrades
           const { error } = await supabase
             .from('subscriptions')
             .upsert({
@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
           if (error) {
             console.error('Error updating subscription for payment:', error);
           } else {
-            console.log('Subscription updated for one-time payment');
+            console.log('Subscription updated for one-time payment, user:', paymentIntent.metadata.user_id);
           }
         }
         break;
@@ -152,6 +152,8 @@ Deno.serve(async (req: Request) => {
 
           if (error) {
             console.error('Error updating subscription period:', error);
+          } else {
+            console.log('Subscription period updated for invoice:', invoice.id);
           }
         }
         break;
@@ -168,6 +170,8 @@ Deno.serve(async (req: Request) => {
 
           if (error) {
             console.error('Error updating subscription status:', error);
+          } else {
+            console.log('Subscription marked as past_due for invoice:', invoice.id);
           }
         }
         break;
@@ -183,6 +187,8 @@ Deno.serve(async (req: Request) => {
 
         if (error) {
           console.error('Error cancelling subscription:', error);
+        } else {
+          console.log('Subscription cancelled:', subscription.id);
         }
         break;
       }

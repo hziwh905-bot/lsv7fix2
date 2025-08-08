@@ -119,6 +119,11 @@ if (confirmError) {
 
       // Payment successful
       onSuccess();
+      
+      // Trigger subscription refresh
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('subscription-updated'));
+      }, 2000);
 
     } catch (err: any) {
       console.error('Payment error:', err);

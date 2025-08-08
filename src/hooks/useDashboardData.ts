@@ -466,12 +466,38 @@ export const useDashboardData = (timeRange: string = '7d') => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Add subscription refresh function
+  const refreshSubscription = useCallback(async () => {
+    if (user) {
+      try {
+        // Force refresh subscription data
+        const subscriptionData = await SubscriptionService.checkSubscriptionAccess(user.id);
+        console.log('🔄 Subscription refreshed:', subscriptionData);
+        
+        // Trigger a re-render by updating a timestamp or similar
+        window.dispatchEvent(new CustomEvent('subscription-updated'));
+      } catch (error) {
+        console.error('Error refreshing subscription:', error);
+      }
+    }
+  }, [user]);
+
   useEffect(() => {
     // Only fetch data if we have a user (restaurant can be null)
     if (user) {
       fetchDashboardData();
     }
   }, [user, restaurant, timeRange, fetchDashboardData]);
+
+  // Listen for subscription updates
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      refreshData();
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, [refreshData]);
 
   return {
     stats,
@@ -485,6 +511,7 @@ export const useDashboardData = (timeRange: string = '7d') => {
     currentUser,
     loading,
     error,
-    refreshData
+    refreshData,
+    refreshSubscription
   };
 };

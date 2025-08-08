@@ -24,6 +24,7 @@ import {
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
@@ -34,13 +35,42 @@ export default function DashboardLayout() {
     }
   }, [user]);
 
+  // Listen for subscription updates from payments
+  React.useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      console.log('🔄 Subscription update event received, refreshing...');
+      checkSubscription();
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
+  // Check for payment success in URL and refresh subscription
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      console.log('🎉 Payment success detected, refreshing subscription...');
+      setTimeout(() => {
+        checkSubscription();
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 1000);
+    }
+  }, []);
+
   const checkSubscription = async () => {
     if (!user) return;
+    
     try {
+      setSubscriptionLoading(true);
       const data = await SubscriptionService.checkSubscriptionAccess(user.id);
+      console.log('📊 Subscription data loaded:', data);
       setSubscriptionData(data);
     } catch (error) {
       console.error('Error checking subscription:', error);
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
