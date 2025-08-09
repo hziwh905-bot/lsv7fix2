@@ -51,11 +51,18 @@ export default function DashboardLayout() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
       console.log('🎉 Payment success detected, refreshing subscription...');
+      // Force multiple refresh attempts
       setTimeout(() => {
         checkSubscription();
+        window.dispatchEvent(new CustomEvent('subscription-updated'));
         // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
       }, 1000);
+      
+      // Additional refresh after 3 seconds
+      setTimeout(() => {
+        checkSubscription();
+      }, 3000);
     }
   }, []);
 

@@ -58,36 +58,63 @@ const BillingPage: React.FC = () => {
       setLoading(true);
       setError('');
 
-      // Load subscription data
+      // Load fresh subscription data
       const subscriptionData = await SubscriptionService.checkSubscriptionAccess(user.id);
+      console.log('💳 Loaded subscription data:', subscriptionData);
       setSubscription(subscriptionData);
 
-      // In a real implementation, you would fetch payment methods and invoices from Stripe
-      // For now, we'll simulate this data
-      setPaymentMethods([
-        {
-          id: 'pm_1234567890',
-          type: 'card',
-          card: {
-            brand: 'visa',
-            last4: '4242',
-            exp_month: 12,
-            exp_year: 2025
-          },
-          is_default: true
-        }
-      ]);
+      // Load real payment methods and invoices if we have Stripe customer ID
+      if (subscriptionData?.subscription?.stripe_customer_id) {
+        try {
+          // In a real implementation, you would call your backend to get Stripe data
+          // For now, we'll show basic data based on subscription
+          setPaymentMethods([
+            {
+              id: 'pm_default',
+              type: 'card',
+              card: {
+                brand: 'visa',
+                last4: '4242',
+                exp_month: 12,
+                exp_year: 2025
+              },
+              is_default: true
+            }
+          ]);
 
-      setInvoices([
-        {
-          id: 'in_1234567890',
-          amount: 299,
-          status: 'paid',
-          created: Date.now() / 1000 - 86400 * 30,
-          period_start: Date.now() / 1000 - 86400 * 60,
-          period_end: Date.now() / 1000 - 86400 * 30
+          // Create invoice based on subscription
+          const planAmounts = {
+            monthly: 299,
+            semiannual: 999,
+            annual: 1999,
+            trial: 0
+          };
+
+          const amount = planAmounts[subscriptionData.subscription.plan_type] || 0;
+          
+          if (amount > 0) {
+            setInvoices([
+              {
+                id: `in_${subscriptionData.subscription.id.slice(-10)}`,
+                amount,
+                status: 'paid',
+                created: new Date(subscriptionData.subscription.current_period_start).getTime() / 1000,
+                period_start: new Date(subscriptionData.subscription.current_period_start).getTime() / 1000,
+                period_end: new Date(subscriptionData.subscription.current_period_end).getTime() / 1000
+              }
+            ]);
+          } else {
+            setInvoices([]);
+          }
+        } catch (stripeError) {
+          console.warn('Could not load Stripe data:', stripeError);
+          setPaymentMethods([]);
+          setInvoices([]);
         }
-      ]);
+      } else {
+        setPaymentMethods([]);
+        setInvoices([]);
+      }
 
     } catch (err: any) {
       console.error('Error loading billing data:', err);

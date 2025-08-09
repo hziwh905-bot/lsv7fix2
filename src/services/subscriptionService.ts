@@ -289,7 +289,7 @@ export class SubscriptionService {
     restaurant_name?: string;
   })[]> {
     try {
-      // First get all subscriptions
+      // Get all subscriptions without trying to join auth.users
       const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -301,14 +301,20 @@ export class SubscriptionService {
         return [];
       }
 
-      // Get user emails from auth.users using service role
+      // Get user emails separately (auth.users requires service role)
       const userIds = subscriptions.map(s => s.user_id);
-      const { data: users, error: usersError } = await supabase.auth.admin.listUsers();
       
-      if (usersError) {
-        console.warn('Could not fetch user emails:', usersError);
+      // Try to get user emails, but don't fail if we can't
+      let users: any = null;
+      try {
+        const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
+        if (!usersError) {
+          users = usersData;
+        }
+      } catch (userError) {
+        console.warn('Could not fetch user emails (requires service role):', userError);
       }
-
+      
       // Get restaurant names
       const { data: restaurants, error: restaurantsError } = await supabase
         .from('restaurants')

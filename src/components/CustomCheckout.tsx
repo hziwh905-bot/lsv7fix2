@@ -120,9 +120,11 @@ if (confirmError) {
       // Payment successful
       onSuccess();
       
-      // Trigger subscription refresh
+      // Trigger subscription refresh with multiple methods
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('subscription-updated'));
+        // Also trigger a page refresh event
+        window.location.reload();
       }, 2000);
 
     } catch (err: any) {

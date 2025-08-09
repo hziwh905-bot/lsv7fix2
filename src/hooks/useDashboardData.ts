@@ -492,10 +492,24 @@ export const useDashboardData = (timeRange: string = '7d') => {
   // Listen for subscription updates
   useEffect(() => {
     const handleSubscriptionUpdate = () => {
+      console.log('🔄 Subscription update event received in dashboard');
       refreshData();
+      // Also refresh subscription data specifically
+      refreshSubscription();
     };
 
     window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    
+    // Also listen for page visibility changes to refresh when user returns
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👁️ Page became visible, refreshing subscription data');
+        refreshSubscription();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
   }, [refreshData]);
 
