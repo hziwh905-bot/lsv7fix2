@@ -5,6 +5,7 @@ import {
   Plus, Trash2, Edit3, Shield, Crown, Zap, TrendingUp,
   Receipt, FileText, Bell, X, Loader2
 } from 'lucide-react';
+import { SubscriptionService } from '../services/subscriptionService';
 import { loadStripe } from '@stripe/stripe-js';
 import { SubscriptionService } from '../services/subscriptionService';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,6 +36,8 @@ interface Invoice {
 
 const BillingPage: React.FC = () => {
   const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +47,45 @@ const BillingPage: React.FC = () => {
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   
   const { user } = useAuth();
+
+  const fetchSubscriptionData = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const subscriptionData = await SubscriptionService.checkSubscriptionAccess(user.id);
+      setSubscription(subscriptionData);
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubscriptionData();
+  }, [user]);
+
+  // Listen for subscription updates
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      console.log('🔄 Billing page: Subscription update event received');
+      fetchSubscriptionData();
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (user) {
@@ -288,16 +330,57 @@ const BillingPage: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Crown className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">No active subscription</p>
-              <button
-                onClick={() => window.location.href = '/upgrade'}
-                className="px-4 py-2 bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] text-white rounded-lg hover:shadow-lg transition-all duration-200"
-              >
-                Choose a Plan
-              </button>
-            </div>
+            {subscription?.subscription ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-900 capitalize">
+                        {subscription.subscription.plan_type} Plan
+                      </p>
+                      <p className="text-sm text-green-700">
+                        Status: {subscription.subscription.status}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-green-700">
+                      {subscription.daysRemaining} days remaining
+                    </p>
+                    <p className="text-xs text-green-600">
+                      Expires: {new Date(subscription.subscription.current_period_end).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Plan Started</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(subscription.subscription.current_period_start).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Next Billing</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(subscription.subscription.current_period_end).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Crown className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h4 className="text-xl font-semibold text-gray-900 mb-2">No active subscription</h4>
+                <p className="text-gray-600 mb-6">
+                  You're currently on the free trial. Upgrade to unlock all features.
+                </p>
+                <button className="bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200">
+                  Choose a Plan
+                </button>
+              </div>
+            )}
           )}
         </div>
 
