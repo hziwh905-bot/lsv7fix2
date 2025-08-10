@@ -274,26 +274,20 @@ const BillingPage: React.FC = () => {
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <Crown className="h-6 w-6 text-blue-600" />
             </div>
-            <>
-  <div>
-    <h3 className="text-lg font-semibold text-gray-900">Current Plan</h3>
-    <p className="text-sm text-gray-600">Your active subscription details</p>
-  </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Current Plan</h3>
+              <p className="text-sm text-gray-600">Your active subscription details</p>
+            </div>
+          </div>
 
-  {subscription?.subscription ? (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-gray-600">Plan</span>
-        <span className="font-semibold text-gray-900">
-          {getPlanDisplayName(subscription.subscription.plan_type)}
-        </span>
-      </div>
-    </div>
-  ) : (
-    <div>No subscription</div>
-  )}
-</>
-
+          {subscription?.subscription ? ( 
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Plan</span>
+                <span className="font-semibold text-gray-900">
+                  {getPlanDisplayName(subscription.subscription.plan_type)}
+                </span>
+              </div>
               
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Status</span>
