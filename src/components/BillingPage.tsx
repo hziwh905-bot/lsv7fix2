@@ -34,12 +34,10 @@ interface Invoice {
 }
 
 const BillingPage: React.FC = () => {
-  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
