@@ -59,37 +59,6 @@ const BillingPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchSubscriptionData();
-  }, [user]);
-
-  // Listen for subscription updates
-  useEffect(() => {
-    const handleSubscriptionUpdate = () => {
-      console.log('🔄 Billing page: Subscription update event received');
-      fetchSubscriptionData();
-    };
-
-    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
-    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-        </div>
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    if (user) {
-      loadBillingData();
-    }
-  }, [user]);
-
   const loadBillingData = async () => {
     if (!user) return;
 
@@ -105,8 +74,8 @@ const BillingPage: React.FC = () => {
       // Load real payment methods and invoices if we have Stripe customer ID
       if (subscriptionData?.subscription?.stripe_customer_id) {
         try {
-          // In a real implementation, you would call your backend to get Stripe data
-          // For now, we'll show basic data based on subscription
+          // In a real implementation, you would call your backend to get Stripe data.
+          // For now, we'll show basic data based on subscription.
           setPaymentMethods([
             {
               id: 'pm_default',
@@ -122,7 +91,7 @@ const BillingPage: React.FC = () => {
           ]);
 
           // Create invoice based on subscription
-          const planAmounts = {
+          const planAmounts: Record<string, number> = {
             monthly: 299,
             semiannual: 999,
             annual: 1999,
@@ -137,9 +106,9 @@ const BillingPage: React.FC = () => {
                 id: `in_${subscriptionData.subscription.id.slice(-10)}`,
                 amount,
                 status: 'paid',
-                created: new Date(subscriptionData.subscription.current_period_start).getTime() / 1000,
-                period_start: new Date(subscriptionData.subscription.current_period_start).getTime() / 1000,
-                period_end: new Date(subscriptionData.subscription.current_period_end).getTime() / 1000
+                created: Math.floor(new Date(subscriptionData.subscription.current_period_start).getTime() / 1000),
+                period_start: Math.floor(new Date(subscriptionData.subscription.current_period_start).getTime() / 1000),
+                period_end: Math.floor(new Date(subscriptionData.subscription.current_period_end).getTime() / 1000)
               }
             ]);
           } else {
@@ -162,6 +131,27 @@ const BillingPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSubscriptionData();
+  }, [user]);
+
+  // Listen for subscription updates
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      console.log('🔄 Billing page: Subscription update event received');
+      fetchSubscriptionData();
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadBillingData();
+    }
+  }, [user]);
 
   const handleCancelSubscription = async () => {
     if (!subscription?.subscription?.stripe_subscription_id) return;
@@ -231,6 +221,7 @@ const BillingPage: React.FC = () => {
   };
 
   if (loading) {
+    // keep a single loading return (skeleton)
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -280,7 +271,7 @@ const BillingPage: React.FC = () => {
             </div>
           </div>
 
-          {subscription?.subscription ? ( 
+          {subscription?.subscription ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Plan</span>
@@ -327,57 +318,16 @@ const BillingPage: React.FC = () => {
               )}
             </div>
           ) : (
-            {subscription?.subscription ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-semibold text-green-900 capitalize">
-                        {subscription.subscription.plan_type} Plan
-                      </p>
-                      <p className="text-sm text-green-700">
-                        Status: {subscription.subscription.status}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-green-700">
-                      {subscription.daysRemaining} days remaining
-                    </p>
-                    <p className="text-xs text-green-600">
-                      Expires: {new Date(subscription.subscription.current_period_end).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Plan Started</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(subscription.subscription.current_period_start).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Next Billing</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(subscription.subscription.current_period_end).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Crown className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h4 className="text-xl font-semibold text-gray-900 mb-2">No active subscription</h4>
-                <p className="text-gray-600 mb-6">
-                  You're currently on the free trial. Upgrade to unlock all features.
-                </p>
-                <button className="bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200">
-                  Choose a Plan
-                </button>
-              </div>
-            )}
+            <div className="text-center py-8">
+              <Crown className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h4 className="text-xl font-semibold text-gray-900 mb-2">No active subscription</h4>
+              <p className="text-gray-600 mb-6">
+                You're currently on the free trial. Upgrade to unlock all features.
+              </p>
+              <button className="bg-gradient-to-r from-[#E6A85C] via-[#E85A9B] to-[#D946EF] text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200">
+                Choose a Plan
+              </button>
+            </div>
           )}
         </div>
 
