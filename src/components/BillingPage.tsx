@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { SubscriptionService } from '../services/subscriptionService';
 import { loadStripe } from '@stripe/stripe-js';
-import { SubscriptionService } from '../services/subscriptionService';
 import { useAuth } from '../contexts/AuthContext';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
