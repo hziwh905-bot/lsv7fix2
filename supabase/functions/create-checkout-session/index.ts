@@ -117,16 +117,19 @@ Deno.serve(async (req: Request) => {
           message: 'Complete your VOYA subscription upgrade'
         }
       },
-      invoice_creation: {
-        enabled: true,
-        invoice_data: {
-          description: `VOYA ${planType} subscription`,
-          metadata: {
-            user_id: user.id,
-            plan_type: planType,
+      // Only enable invoice creation for payment mode (not subscription mode)
+      ...(autoRenew ? {} : {
+        invoice_creation: {
+          enabled: true,
+          invoice_data: {
+            description: `VOYA ${planType} subscription`,
+            metadata: {
+              user_id: user.id,
+              plan_type: planType,
+            }
           }
         }
-      }
+      })
     });
 
     return new Response(

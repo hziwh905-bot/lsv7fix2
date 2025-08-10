@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CustomerService } from '../services/customerService';
 import { RewardService } from '../services/rewardService';
+import { SubscriptionService } from '../services/subscriptionService';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 

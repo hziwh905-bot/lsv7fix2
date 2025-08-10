@@ -284,12 +284,80 @@ export class SubscriptionService {
     };
   }
 
+  static async getSystemWideStats(): Promise<{
+    totalRevenue: number;
+    totalCustomers: number;
+    totalRestaurants: number;
+    totalTransactions: number;
+    monthlyGrowth: number;
+  }> {
+    try {
+      // Get all restaurants
+      const { data: restaurants, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('id');
+
+      if (restaurantsError) throw restaurantsError;
+
+      const restaurantIds = restaurants?.map(r => r.id) || [];
+
+      // Get system-wide customer data
+      const { data: customers, error: customersError } = await supabase
+        .from('customers')
+        .select('total_spent, created_at')
+        .in('restaurant_id', restaurantIds);
+
+      if (customersError) throw customersError;
+
+      // Get system-wide transaction data
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('amount_spent, created_at')
+        .in('restaurant_id', restaurantIds);
+
+      if (transactionsError) throw transactionsError;
+
+      // Calculate metrics
+      const totalRevenue = customers?.reduce((sum, c) => sum + parseFloat(c.total_spent?.toString() || '0'), 0) || 0;
+      const totalCustomers = customers?.length || 0;
+      const totalRestaurants = restaurants?.length || 0;
+      const totalTransactions = transactions?.length || 0;
+
+      // Calculate monthly growth
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      
+      const newCustomersThisMonth = customers?.filter(c => 
+        new Date(c.created_at) > lastMonth
+      ).length || 0;
+      
+      const monthlyGrowth = totalCustomers > 0 ? (newCustomersThisMonth / totalCustomers) * 100 : 0;
+
+      return {
+        totalRevenue,
+        totalCustomers,
+        totalRestaurants,
+        totalTransactions,
+        monthlyGrowth
+      };
+    } catch (error: any) {
+      console.error('Error fetching system-wide stats:', error);
+      return {
+        totalRevenue: 0,
+        totalCustomers: 0,
+        totalRestaurants: 0,
+        totalTransactions: 0,
+        monthlyGrowth: 0
+      };
+    }
+  }
+
   static async getAllSubscriptions(): Promise<(Subscription & { 
     user_email?: string;
     restaurant_name?: string;
   })[]> {
     try {
-      // Get all subscriptions without trying to join auth.users
+      // Get all subscriptions
       const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -301,18 +369,16 @@ export class SubscriptionService {
         return [];
       }
 
-      // Get user emails separately (auth.users requires service role)
       const userIds = subscriptions.map(s => s.user_id);
       
-      // Try to get user emails, but don't fail if we can't
-      let users: any = null;
-      try {
-        const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
-        if (!usersError) {
-          users = usersData;
-        }
-      } catch (userError) {
-        console.warn('Could not fetch user emails (requires service role):', userError);
+      // Get user emails from our users table
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, email')
+        .in('id', userIds);
+
+      if (usersError) {
+        console.warn('Could not fetch user emails:', usersError);
       }
       
       // Get restaurant names
@@ -327,7 +393,7 @@ export class SubscriptionService {
 
       // Combine the data
       const enrichedSubscriptions = subscriptions.map(subscription => {
-        const user = users?.users?.find(u => u.id === subscription.user_id);
+        const user = users?.find(u => u.id === subscription.user_id);
         const restaurant = restaurants?.find(r => r.owner_id === subscription.user_id);
         
         return {
