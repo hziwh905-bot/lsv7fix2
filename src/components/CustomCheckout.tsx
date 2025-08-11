@@ -120,13 +120,10 @@ if (confirmError) {
       // Payment successful
       onSuccess();
       
-      // Trigger immediate subscription refresh without page reload
-      window.dispatchEvent(new CustomEvent('subscription-updated'));
-      
-      // Force refresh subscription data
+      // Single subscription update event
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('subscription-updated'));
-      }, 1000);
+      }, 500);
 
     } catch (err: any) {
       console.error('Payment error:', err);

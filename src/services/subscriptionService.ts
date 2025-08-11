@@ -357,7 +357,7 @@ export class SubscriptionService {
     restaurant_name?: string;
   })[]> {
     try {
-      // Get all subscriptions
+      // Get all subscriptions without joins first
       const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -371,14 +371,12 @@ export class SubscriptionService {
 
       const userIds = subscriptions.map(s => s.user_id);
       
-      // Get user emails from our users table
+      // Get user emails from auth.users via RPC function
       const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, email')
-        .in('id', userIds);
+        .rpc('get_user_emails', { user_ids: userIds });
 
       if (usersError) {
-        console.warn('Could not fetch user emails:', usersError);
+        console.warn('Could not fetch user emails via RPC:', usersError);
       }
       
       // Get restaurant names
@@ -393,7 +391,7 @@ export class SubscriptionService {
 
       // Combine the data
       const enrichedSubscriptions = subscriptions.map(subscription => {
-        const user = users?.find(u => u.id === subscription.user_id);
+        const user = users?.find((u: any) => u.id === subscription.user_id);
         const restaurant = restaurants?.find(r => r.owner_id === subscription.user_id);
         
         return {
@@ -430,11 +428,13 @@ export class SubscriptionService {
       const trial = subscriptions?.filter(s => s.plan_type === 'trial').length || 0;
       const paid = subscriptions?.filter(s => s.plan_type !== 'trial').length || 0;
 
-      // Calculate estimated revenue (simplified)
+      // Calculate actual revenue based on plan types
       const revenue = subscriptions?.reduce((sum, sub) => {
-        if (sub.plan_type === 'monthly') return sum + 2.99;
-        if (sub.plan_type === 'semiannual') return sum + 9.99;
-        if (sub.plan_type === 'annual') return sum + 19.99;
+        if (sub.status === 'active') {
+          if (sub.plan_type === 'monthly') return sum + 2.99;
+          if (sub.plan_type === 'semiannual') return sum + 9.99;
+          if (sub.plan_type === 'annual') return sum + 19.99;
+        }
         return sum;
       }, 0) || 0;
 
@@ -459,6 +459,70 @@ export class SubscriptionService {
         paid: 0,
         revenue: 0,
         churnRate: 0
+      };
+    }
+  }
+
+  static async getSystemWideStats(): Promise<{
+    totalRevenue: number;
+    totalCustomers: number;
+    totalRestaurants: number;
+    totalTransactions: number;
+    monthlyGrowth: number;
+  }> {
+    try {
+      // Get all restaurants count
+      const { count: restaurantCount, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('*', { count: 'exact', head: true });
+
+      if (restaurantsError) throw restaurantsError;
+
+      // Get all customers across all restaurants
+      const { data: customers, error: customersError } = await supabase
+        .from('customers')
+        .select('total_spent, created_at');
+
+      if (customersError) throw customersError;
+
+      // Get all transactions across all restaurants
+      const { count: transactionCount, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact', head: true });
+
+      if (transactionsError) throw transactionsError;
+
+      // Calculate metrics
+      const totalRevenue = customers?.reduce((sum, c) => sum + parseFloat(c.total_spent?.toString() || '0'), 0) || 0;
+      const totalCustomers = customers?.length || 0;
+      const totalRestaurants = restaurantCount || 0;
+      const totalTransactions = transactionCount || 0;
+
+      // Calculate monthly growth
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      
+      const newCustomersThisMonth = customers?.filter(c => 
+        new Date(c.created_at) > lastMonth
+      ).length || 0;
+      
+      const monthlyGrowth = totalCustomers > 0 ? (newCustomersThisMonth / totalCustomers) * 100 : 0;
+
+      return {
+        totalRevenue,
+        totalCustomers,
+        totalRestaurants,
+        totalTransactions,
+        monthlyGrowth
+      };
+    } catch (error: any) {
+      console.error('Error fetching system-wide stats:', error);
+      return {
+        totalRevenue: 0,
+        totalCustomers: 0,
+        totalRestaurants: 0,
+        totalTransactions: 0,
+        monthlyGrowth: 0
       };
     }
   }
